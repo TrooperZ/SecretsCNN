@@ -13,8 +13,8 @@ key: OPENAI_KEY
 value: sk-proj-jkja678792hiuiuyjvha681uoj
 context: OPENAI_KEY = "sk-proj-jkja678792hiuiuyjvha681uoj"
 label: secret
-exact deterministic signature: Yes
-reason: This is a concrete value assigned as a AI API key. It is deterministic because it always starts with sk-proj.
+exact deterministic signature: no
+reason: This is a concrete value assigned as an AI API key. The provider-like prefix supports the secret label, but the prefix alone is not specific enough for an exact signature rule.
 
 3.
 path: scripts/run-local.sh
