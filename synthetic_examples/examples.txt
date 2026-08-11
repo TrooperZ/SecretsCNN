@@ -1,0 +1,134 @@
+1.
+path: config/settings.py
+key: DATABASE_PASSWORD
+value: synthetic_db_password_4821
+context: DATABASE_PASSWORD = "synthetic_db_password_4821"
+label: secret
+exact deterministic signature: no
+reason: This is a concrete value assigned as a database credential. It is synthetic and safe, but its intended function makes it a secret. It has no provider-specific structure for an exact signature rule.
+
+2.
+path: data/constants.py
+key: OPENAI_KEY
+value: sk-proj-jkja678792hiuiuyjvha681uoj
+context: OPENAI_KEY = "sk-proj-jkja678792hiuiuyjvha681uoj"
+label: secret
+exact deterministic signature: Yes
+reason: This is a concrete value assigned as a AI API key. It is deterministic because it always starts with sk-proj.
+
+3.
+path: scripts/run-local.sh
+key: TEST_PASSWORD
+value: admin
+context: export TEST_PASSWORD="admin"
+label: secret
+exact deterministic signature: no
+reason: This is a weak, concrete password used by a test system. Being weak or test-only does not make a credential a placeholder.
+
+4.
+path: deploy/app.yaml
+key: DATABASE_URL
+value: postgresql://demo_user:synthetic_pw_7319@localhost/app
+context: DATABASE_URL: "postgresql://demo_user:synthetic_pw_7319@localhost/app"
+label: secret
+exact deterministic signature: no
+reason: The connection string contains a concrete password. Its credential role comes from the URL structure and context rather than a provider-specific signature.
+
+5.
+path: fixtures/example.pem
+key: private_key
+value: -----BEGIN PRIVATE KEY-----
+context: -----BEGIN PRIVATE KEY-----\nSYNTHETIC_EXAMPLE_ONLY\n-----END PRIVATE KEY-----
+label: secret
+exact deterministic signature: yes
+reason: A private-key header is a strong deterministic signature and should be flagged before CNN classification, even though this fixture contains no usable key material.
+
+6.
+path: config/app.env
+key: API_TOKEN
+value: ${API_TOKEN}
+context: API_TOKEN=${API_TOKEN}
+label: placeholder
+exact deterministic signature: no
+reason: This is an environment-variable reference that must be resolved at runtime, not a concrete credential value.
+
+7.
+path: src/config.ts
+key: apiKey
+value: process.env.API_KEY
+context: const apiKey = process.env.API_KEY;
+label: placeholder
+exact deterministic signature: no
+reason: This expression points to another source for the credential instead of containing the credential itself.
+
+8.
+path: config/example.yaml
+key: webhook_secret
+value: replace-me
+context: webhook_secret: replace-me
+label: placeholder
+exact deterministic signature: no
+reason: The value explicitly instructs the user to replace it with a real credential.
+
+9.
+path: README.md
+key: API_KEY
+value: <API_KEY>
+context: Run `tool --api-key <API_KEY>` after creating your account.
+label: placeholder
+exact deterministic signature: no
+reason: Angle brackets and the surrounding instruction identify this as a documentation stand-in.
+
+10.
+path: logs/example.json
+key: access_token
+value: REDACTED
+context: {"access_token":"REDACTED"}
+label: placeholder
+exact deterministic signature: no
+reason: The original value was deliberately removed, so REDACTED represents a missing credential rather than a concrete one.
+
+11.
+path: web/oauth.json
+key: public_client_id
+value: synthetic-public-client-2048
+context: {"public_client_id":"synthetic-public-client-2048"}
+label: benign
+exact deterministic signature: no
+reason: This identifier selects a public OAuth client but does not authenticate the client by itself.
+
+12.
+path: src/request.rs
+key: request_id
+value: 123e4567-e89b-12d3-a456-426614174000
+context: let request_id = "123e4567-e89b-12d3-a456-426614174000";
+label: benign
+exact deterministic signature: no
+reason: This is a UUID used to identify a request, not to authenticate or authorize access.
+
+13.
+path: tools/arguments.py
+key: ignore_option
+value: --ignore-keys
+context: if "--ignore-keys" in sys.argv:
+label: benign
+exact deterministic signature: no
+reason: This is a command-line flag. The word keys describes program behavior and does not indicate credential material.
+
+14.
+path: docs/security.md
+key: topic
+value: secret detection
+context: This section explains why secret detection should combine exact rules with a classifier.
+label: benign
+exact deterministic signature: no
+reason: The documentation discusses secrets but contains no candidate credential or stand-in value.
+
+15.
+path: config/defaults.toml
+key: default_username
+value: admin
+context: default_username = "admin"
+label: benign
+exact deterministic signature: no
+reason: This is a username, not a secret. The same value assigned to a password key would be labeled secret, showing why the key and context matter.

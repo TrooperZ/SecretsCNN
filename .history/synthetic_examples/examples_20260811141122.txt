@@ -1,0 +1,17 @@
+1.
+path: config/settings.py
+key: DATABASE_PASSWORD
+value: synthetic_db_password_4821
+context: DATABASE_PASSWORD = "synthetic_db_password_4821"
+label: secret
+exact deterministic signature: no
+reason: This is a concrete value assigned as a database credential. It is synthetic and safe, but its intended function makes it a secret. It has no provider-specific structure for an exact signature rule.
+
+2.
+path: data/constants.py
+key: MONGODB_PASSWORD
+value:
+context: DATABASE_PASSWORD = "synthetic_db_password_4821"
+label: secret
+exact deterministic signature: no
+reason: This is a concrete value assigned as a database credential. It is synthetic and safe, but its intended function makes it a secret. It has no provider-specific structure for an exact signature rule.
