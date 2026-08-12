@@ -46,6 +46,41 @@ class SplitRepositoryIdsTest(unittest.TestCase):
             [196, 170, SEP_TOKEN, SEP_TOKEN, SEP_TOKEN],
         )
 
+        tokens = encode_candidate("", "", "", "")
+
+        self.assertEqual(tokens[:3], [SEP_TOKEN, SEP_TOKEN, SEP_TOKEN])
+        self.assertTrue(all(token == PAD_TOKEN for token in tokens[3:]))
+
+        tokens = encode_candidate("ignored.py", "API_TOKEN", "x" * 700, "ignored")
+
+        self.assertEqual(tokens[:3], [SEP_TOKEN, SEP_TOKEN, ord("x") + 1])
+        self.assertEqual(tokens.count(ord("x") + 1), SEQUENCE_LENGTH - 3)
+        self.assertEqual(tokens[-1], SEP_TOKEN)
+
+        value = "synthetic_secret_123"
+        context = "a" * 300 + f"API_TOKEN={value}" + "b" * 300
+        tokens = encode_candidate(
+            "discard/" * 100 + "src/config.py",
+            "API_TOKEN",
+            value,
+            context,
+        )
+        first_sep = tokens.index(SEP_TOKEN)
+        second_sep = tokens.index(SEP_TOKEN, first_sep + 1)
+        third_sep = tokens.index(SEP_TOKEN, second_sep + 1)
+
+        kept_path = bytes(token - 1 for token in tokens[:first_sep])
+        kept_key = bytes(token - 1 for token in tokens[first_sep + 1:second_sep])
+        kept_value = bytes(token - 1 for token in tokens[second_sep + 1:third_sep])
+        kept_context = bytes(
+            token - 1 for token in tokens[third_sep + 1:] if token != PAD_TOKEN
+        )
+
+        self.assertTrue(kept_path.endswith(b"src/config.py"))
+        self.assertEqual(kept_key, b"API_TOKEN")
+        self.assertEqual(kept_value, value.encode("utf-8"))
+        self.assertIn(value.encode("utf-8"), kept_context)
+
 
 if __name__ == "__main__":
     unittest.main()
