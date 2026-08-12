@@ -1,7 +1,13 @@
 import random
 import unittest
 
-from secretscnn.data import split_repository_ids
+from secretscnn.data import (
+    PAD_TOKEN,
+    SEP_TOKEN,
+    SEQUENCE_LENGTH,
+    encode_candidate,
+    split_repository_ids,
+)
 
 
 class SplitRepositoryIdsTest(unittest.TestCase):
@@ -22,6 +28,23 @@ class SplitRepositoryIdsTest(unittest.TestCase):
         random.seed(99)
         split_repository_ids(repository_ids, seed=7)
         self.assertEqual(random.random(), expected_next_random)
+
+    def test_encode_candidate(self):
+        tokens = encode_candidate("a.py", "K", "x", "")
+
+        self.assertEqual(len(tokens), SEQUENCE_LENGTH)
+        self.assertEqual(
+            tokens[:12],
+            [98, 47, 113, 122, SEP_TOKEN, 76, SEP_TOKEN, 121, SEP_TOKEN, 0, 0, 0],
+        )
+        self.assertTrue(all(token == PAD_TOKEN for token in tokens[9:]))
+
+        tokens = encode_candidate("é", "", "", "")
+
+        self.assertEqual(
+            tokens[:5],
+            [196, 170, SEP_TOKEN, SEP_TOKEN, SEP_TOKEN],
+        )
 
 
 if __name__ == "__main__":

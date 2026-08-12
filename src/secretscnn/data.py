@@ -22,7 +22,7 @@ def split_repository_ids(
     training_count = int(len(unique_ids) * TRAINING_COUNT_WEIGHT)
     validation_count = int(len(unique_ids) * VALIDATION_COUNT_WEIGHT)
 
-    output = {
+    output: dict[str, list[str]] = {
         "train" : unique_ids[:training_count],
         "validation": unique_ids[training_count:training_count+validation_count],
         "test": unique_ids[training_count+validation_count:]
@@ -30,27 +30,75 @@ def split_repository_ids(
 
     return output
 
+def take_prefix(data: bytes, budget: int) -> tuple[bytes, int]:
+    amount = min(len(data), budget)
+    return data[:amount], budget - amount
+
+def closest_context_window(
+    context: bytes,
+    value: bytes,
+    size: int,
+) -> bytes:
+    if size <= 0:
+        return b""
+
+    if len(context) <= size:
+        return context
+
+    match_start = context.find(value) if value else -1
+
+    if match_start == -1:
+        return context[:size]
+
+    match_center = match_start + len(value) // 2
+    window_start = match_center - size // 2
+    window_start = max(0, min(window_start, len(context) - size))
+
+    return context[window_start:window_start + size]
 
 def encode_candidate(path: str, key: str, value: str, context: str) -> list[int]:
-
     encoded: list[int] = []
 
-    encoded.extend([byte + 1 for byte in path.encode("utf-8")])
+    budget: int = SEQUENCE_LENGTH - 3 # 3 separator tokens
+
+    value_bytes, budget = take_prefix(value.encode("utf-8"), budget)
+    key_bytes, budget = take_prefix(key.encode("utf-8"), budget)
+
+    context_limit = min(128, budget)
+    context_bytes = closest_context_window(
+        context.encode("utf-8"),
+        value.encode("utf-8"),
+        context_limit,
+    )
+    budget -= len(context_bytes)
+
+    path_data = path.encode("utf-8")
+    path_amount = min(len(path_data), budget)
+    path_bytes = path_data[-path_amount:] if path_amount else b""
+    budget -= path_amount
+
+
+    if (budget > 0):
+        budget += len(context_bytes)
+        context_limit = budget
+        context_bytes = closest_context_window(
+            context.encode("utf-8"),
+            value.encode("utf-8"),
+            context_limit,
+        )
+        budget -= len(context_bytes)
+
+
+    encoded.extend(byte + 1 for byte in path_bytes)
     encoded.append(SEP_TOKEN)
 
-    encoded.extend([byte + 1 for byte in key.encode("utf-8")])
+    encoded.extend(byte + 1 for byte in key_bytes)
     encoded.append(SEP_TOKEN)
 
-    encoded.extend([byte + 1 for byte in value.encode("utf-8")])
+    encoded.extend(byte + 1 for byte in value_bytes)
     encoded.append(SEP_TOKEN)
 
-    encoded.extend([byte + 1 for byte in context.encode("utf-8")])
-
-    if (len(encoded) > SEQUENCE_LENGTH):
-        raise ValueError(f"More than SEQUENCE_LENGTH ({SEQUENCE_LENGTH}) tokens in encoded list")
-
-    while (len(encoded) < SEQUENCE_LENGTH):
-        encoded.append(PAD_TOKEN)
+    encoded.extend(byte + 1 for byte in context_bytes)
+    encoded.extend([PAD_TOKEN] * (SEQUENCE_LENGTH - len(encoded)))
 
     return encoded
-
