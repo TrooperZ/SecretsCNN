@@ -1,6 +1,8 @@
 import random
+import json
 from collections.abc import Iterable
-from typing import Final
+from pathlib import Path
+from typing import Final, Mapping
 
 # Test count weight is whatever is not consumed by training and validation
 TRAINING_COUNT_WEIGHT: Final[float] = 0.8
@@ -22,6 +24,19 @@ LABEL_TO_ID: Final[dict[str, int]] = {
     "placeholder": 1,
     "secret": 2,
 }
+
+REQUIRED_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "repository_id",
+        "language",
+        "path",
+        "key",
+        "value",
+        "context",
+        "label",
+        "source",
+    }
+)
 
 
 def split_repository_ids(
@@ -122,3 +137,70 @@ def label_to_id(label: str) -> int:
         return LABEL_TO_ID[label]
     except KeyError as error:
         raise ValueError(f"Unknown label: {label}") from error
+
+
+def load_jsonl(path: str | Path) -> list[dict[str, str]]:
+    records: list[dict[str, str]] = []
+
+    with Path(path).open(encoding="utf-8") as file:
+        for line_number, line in enumerate(file, start=1):
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError as error:
+                raise ValueError(f"Invalid JSON on line {line_number}") from error
+
+            if not isinstance(record, dict):
+                raise ValueError(f"Expected an object on line {line_number}")
+
+            missing = REQUIRED_FIELDS - record.keys()
+            if missing:
+                raise ValueError(
+                    f"Missing fields on line {line_number}: {', '.join(sorted(missing))}"
+                )
+
+            for field, value in record.items():
+                if not isinstance(value, str):
+                    raise ValueError(
+                        f"Field {field!r} on line {line_number} must be a string"
+                    )
+
+            try:
+                label_to_id(record["label"])
+            except ValueError as error:
+                raise ValueError(f"Invalid label on line {line_number}") from error
+
+            records.append(record)
+
+    if not records:
+        raise ValueError("Dataset is empty")
+
+    return records
+
+
+def split_records(
+    records: Iterable[Mapping[str, str]],
+    seed: int = 1337,
+) -> dict[str, list[Mapping[str, str]]]:
+    records_list = list(records)
+    repository_ids = [record["repository_id"] for record in records_list]
+
+    split_repo_ids = split_repository_ids(repository_ids, seed)
+
+    repository_to_split = {}
+
+    for split_name, repository_ids in split_repo_ids.items():
+        for repository_id in repository_ids:
+            repository_to_split[repository_id] = split_name
+
+    split_record_lists: dict[str, list[Mapping[str, str]]] = {
+        "train": [],
+        "validation": [],
+        "test": [],
+    }
+
+    for record in records_list:
+        repository_id = record["repository_id"]
+        split_name = repository_to_split[repository_id]
+        split_record_lists[split_name].append(record)
+
+    return split_record_lists
