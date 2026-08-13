@@ -11,6 +11,17 @@ SEP_TOKEN: Final[int] = 257
 SEQUENCE_LENGTH: Final[int] = 512
 VOCABULARY_SIZE: Final[int] = 258
 
+CLASS_NAMES: Final[tuple[str, ...]] = (
+    "benign",
+    "placeholder",
+    "secret",
+)
+
+LABEL_TO_ID: Final[dict[str, int]] = {
+    "benign": 0,
+    "placeholder": 1,
+    "secret": 2,
+}
 
 def split_repository_ids(
     repository_ids: Iterable[str], seed: int = 1337
@@ -102,3 +113,9 @@ def encode_candidate(path: str, key: str, value: str, context: str) -> list[int]
     encoded.extend([PAD_TOKEN] * (SEQUENCE_LENGTH - len(encoded)))
 
     return encoded
+
+def label_to_id(label: str) -> int:
+    try:
+        return LABEL_TO_ID[label]
+    except KeyError as error:
+        raise ValueError(f"Unknown label: {label}") from error
