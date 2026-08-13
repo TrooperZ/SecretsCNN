@@ -9,14 +9,15 @@ KERNEL_WIDTHS = (3, 5, 7)
 HIDDEN_DIM = 32
 CLASS_COUNT = 3
 
+
 class ByteEmbedding(nn.Module):
     def __init__(self):
         super().__init__()
         self.embedding_layer = nn.Embedding(
             num_embeddings=VOCABULARY_SIZE,
             embedding_dim=EMBEDDING_DIM,
-            padding_idx=PAD_TOKEN
-            )
+            padding_idx=PAD_TOKEN,
+        )
 
     def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
         output = self.embedding_layer(input_ids)
@@ -51,14 +52,13 @@ class ConvBranch(nn.Module):
 
         return pooled
 
+
 class SecretsCNN(nn.Module):
     def __init__(self):
         super().__init__()
         self.embedding = ByteEmbedding()
 
-        self.branches = nn.ModuleList(
-            ConvBranch(width) for width in KERNEL_WIDTHS
-        )
+        self.branches = nn.ModuleList(ConvBranch(width) for width in KERNEL_WIDTHS)
 
         self.hidden = nn.Linear(
             CONV_FILTERS * len(KERNEL_WIDTHS),

@@ -23,6 +23,7 @@ LABEL_TO_ID: Final[dict[str, int]] = {
     "secret": 2,
 }
 
+
 def split_repository_ids(
     repository_ids: Iterable[str], seed: int = 1337
 ) -> dict[str, list[str]]:
@@ -34,16 +35,18 @@ def split_repository_ids(
     validation_count = int(len(unique_ids) * VALIDATION_COUNT_WEIGHT)
 
     output: dict[str, list[str]] = {
-        "train" : unique_ids[:training_count],
-        "validation": unique_ids[training_count:training_count+validation_count],
-        "test": unique_ids[training_count+validation_count:]
+        "train": unique_ids[:training_count],
+        "validation": unique_ids[training_count : training_count + validation_count],
+        "test": unique_ids[training_count + validation_count :],
     }
 
     return output
 
+
 def take_prefix(data: bytes, budget: int) -> tuple[bytes, int]:
     amount = min(len(data), budget)
     return data[:amount], budget - amount
+
 
 def closest_context_window(
     context: bytes,
@@ -65,12 +68,13 @@ def closest_context_window(
     window_start = match_center - size // 2
     window_start = max(0, min(window_start, len(context) - size))
 
-    return context[window_start:window_start + size]
+    return context[window_start : window_start + size]
+
 
 def encode_candidate(path: str, key: str, value: str, context: str) -> list[int]:
     encoded: list[int] = []
 
-    budget: int = SEQUENCE_LENGTH - 3 # 3 separator tokens
+    budget: int = SEQUENCE_LENGTH - 3  # 3 separator tokens
 
     value_bytes, budget = take_prefix(value.encode("utf-8"), budget)
     key_bytes, budget = take_prefix(key.encode("utf-8"), budget)
@@ -88,8 +92,7 @@ def encode_candidate(path: str, key: str, value: str, context: str) -> list[int]
     path_bytes = path_data[-path_amount:] if path_amount else b""
     budget -= path_amount
 
-
-    if (budget > 0):
+    if budget > 0:
         budget += len(context_bytes)
         context_limit = budget
         context_bytes = closest_context_window(
@@ -98,7 +101,6 @@ def encode_candidate(path: str, key: str, value: str, context: str) -> list[int]
             context_limit,
         )
         budget -= len(context_bytes)
-
 
     encoded.extend(byte + 1 for byte in path_bytes)
     encoded.append(SEP_TOKEN)
@@ -113,6 +115,7 @@ def encode_candidate(path: str, key: str, value: str, context: str) -> list[int]
     encoded.extend([PAD_TOKEN] * (SEQUENCE_LENGTH - len(encoded)))
 
     return encoded
+
 
 def label_to_id(label: str) -> int:
     try:

@@ -21,7 +21,9 @@ class SplitRepositoryIdsTest(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(set(assigned), set(repository_ids))
         self.assertEqual(len(assigned), len(set(assigned)))
-        self.assertEqual([len(first[name]) for name in ("train", "validation", "test")], [16, 2, 2])
+        self.assertEqual(
+            [len(first[name]) for name in ("train", "validation", "test")], [16, 2, 2]
+        )
 
         random.seed(99)
         expected_next_random = random.random()
@@ -70,10 +72,10 @@ class SplitRepositoryIdsTest(unittest.TestCase):
         third_sep = tokens.index(SEP_TOKEN, second_sep + 1)
 
         kept_path = bytes(token - 1 for token in tokens[:first_sep])
-        kept_key = bytes(token - 1 for token in tokens[first_sep + 1:second_sep])
-        kept_value = bytes(token - 1 for token in tokens[second_sep + 1:third_sep])
+        kept_key = bytes(token - 1 for token in tokens[first_sep + 1 : second_sep])
+        kept_value = bytes(token - 1 for token in tokens[second_sep + 1 : third_sep])
         kept_context = bytes(
-            token - 1 for token in tokens[third_sep + 1:] if token != PAD_TOKEN
+            token - 1 for token in tokens[third_sep + 1 :] if token != PAD_TOKEN
         )
 
         self.assertTrue(kept_path.endswith(b"src/config.py"))
