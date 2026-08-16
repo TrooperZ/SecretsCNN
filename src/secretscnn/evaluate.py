@@ -1,7 +1,47 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
+from typing import TypedDict
 from secretscnn.data import CLASS_NAMES, LABEL_TO_ID
+import re
+
+EXACT_SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----"),
+)
+
+PLACEHOLDER_VALUES: frozenset[str] = frozenset({
+    "your-token-here",
+    "your_api_key",
+    "replace-me",
+    "replace_with_token",
+    "changeme",
+    "placeholder",
+    "example-secret",
+    "test-token",
+    "redacted",
+    "xxxxxxxx",
+    "fakekey123",
+})
+
+REFERENCE_PLACEHOLDER_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*\}"),
+    re.compile(r"\$[A-Za-z_][A-Za-z0-9_]*"),
+)
+
+class ClassMetrics(TypedDict):
+    precision: float
+    recall: float
+    f1: float
+
+
+class EvaluationReport(TypedDict):
+    confusion_matrix: list[list[int]]
+    per_class: dict[str, ClassMetrics]
+    macro_f1: float
+    benign_false_positives_per_1000: float
+    placeholder_predicted_secret: int
+    secret_predicted_placeholder: int
+
 
 def calculate_class_metrics(
     matrix: list[list[int]],
@@ -73,20 +113,10 @@ def collect_predictions(
 def evaluate_model(
     model: nn.Module,
     data_loader: DataLoader,
-) -> None:
+) -> EvaluationReport:
     actual, predicted = collect_predictions(model, data_loader)
+    return evaluate_predictions(actual, predicted)
 
-    matrix = build_confusion_matrix(
-        actual,
-        predicted,
-        class_count=len(CLASS_NAMES),
-    )
-
-    for class_id, class_name in enumerate(CLASS_NAMES):
-        precision, recall, f1 = calculate_class_metrics(matrix, class_id)
-        print(class_name, precision, recall, f1)
-
-    print("macro_f1", calculate_macro_f1(matrix))
 
 def calculate_benign_false_positives_per_1000(
     matrix: list[list[int]],
@@ -100,3 +130,74 @@ def calculate_benign_false_positives_per_1000(
 
     false_positives = matrix[benign_id][secret_id]
     return false_positives / benign_total * 1000
+
+def calculate_placeholder_secret_confusion(
+    matrix: list[list[int]],
+) -> tuple[int, int]:
+    placeholder_id = LABEL_TO_ID["placeholder"]
+    secret_id = LABEL_TO_ID["secret"]
+
+    return (
+        matrix[placeholder_id][secret_id],
+        matrix[secret_id][placeholder_id],
+    )
+
+def matches_exact_secret_signature(value: str) -> bool:
+    stripped_value = value.strip()
+    return any(
+        pattern.fullmatch(stripped_value) is not None
+        for pattern in EXACT_SECRET_PATTERNS
+    )
+
+def matches_literal_placeholder(value: str) -> bool:
+    return value.strip().lower() in PLACEHOLDER_VALUES
+
+def matches_reference_placeholder(value: str) -> bool:
+    stripped_value = value.strip()
+    return any(
+        pattern.fullmatch(stripped_value) is not None
+        for pattern in REFERENCE_PLACEHOLDER_PATTERNS
+    )
+
+def predict_regex_baseline(value: str) -> int:
+    if matches_exact_secret_signature(value):
+        return LABEL_TO_ID["secret"]
+
+    if matches_literal_placeholder(value) or matches_reference_placeholder(value):
+        return LABEL_TO_ID["placeholder"]
+
+    return LABEL_TO_ID["benign"]
+
+def evaluate_predictions(
+    actual_labels: list[int],
+    predicted_labels: list[int],
+) -> EvaluationReport:
+    matrix = build_confusion_matrix(
+        actual_labels,
+        predicted_labels,
+        class_count=len(CLASS_NAMES),
+    )
+
+    per_class: dict[str, ClassMetrics] = {}
+    for class_id, class_name in enumerate(CLASS_NAMES):
+        precision, recall, f1 = calculate_class_metrics(matrix, class_id)
+        per_class[class_name] = {
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+        }
+
+    placeholder_predicted_secret, secret_predicted_placeholder = (
+        calculate_placeholder_secret_confusion(matrix)
+    )
+
+    return {
+        "confusion_matrix": matrix,
+        "per_class": per_class,
+        "macro_f1": calculate_macro_f1(matrix),
+        "benign_false_positives_per_1000": (
+            calculate_benign_false_positives_per_1000(matrix)
+        ),
+        "placeholder_predicted_secret": placeholder_predicted_secret,
+        "secret_predicted_placeholder": secret_predicted_placeholder,
+    }
