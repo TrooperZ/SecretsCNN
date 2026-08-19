@@ -2,7 +2,8 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from typing import TypedDict
-from secretscnn.data import CLASS_NAMES, LABEL_TO_ID
+from secretscnn.data import CLASS_NAMES, LABEL_TO_ID, label_to_id
+from collections.abc import Iterable, Mapping
 import re
 
 EXACT_SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
@@ -201,3 +202,17 @@ def evaluate_predictions(
         "placeholder_predicted_secret": placeholder_predicted_secret,
         "secret_predicted_placeholder": secret_predicted_placeholder,
     }
+
+def evaluate_regex_baseline(
+    records: Iterable[Mapping[str, str]],
+) -> EvaluationReport:
+    actual_labels: list[int] = []
+    predicted_labels: list[int] = []
+
+    for record in records:
+        actual_labels.append(label_to_id(record["label"]))
+        predicted_labels.append(predict_regex_baseline(record["value"]))
+
+    return evaluate_predictions(actual_labels, predicted_labels)
+
+
